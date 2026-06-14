@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  
+  groups        GroupMember[]
+  expensesPaid  Expense[] @relation("PaidBy")
+  splitsOwed    ExpenseSplit[]
+  messages      ExpenseMessage[]
+  paymentsSent  Payment[] @relation("PaymentSender")
+  paymentsRecv  Payment[] @relation("PaymentReceiver")
+  notifications Notification[]
+}
+
+model Group {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  icon        String?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+
+  members     GroupMember[]
+  expenses    Expense[]
+}
+
+model GroupMember {
+  id        String    @id @default(uuid())
+  groupId   String
+  userId    String
+  joinedAt  DateTime  @default(now())
+
+  group     Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+model Expense {
+  id          String    @id @default(uuid())
+  groupId     String
+  title       String
+  description String?
+  amount      Float
+  paidById    String
+  date        DateTime  @default(now())
+  category    String?
+  receiptUrl  String?
+  createdAt   DateTime  @default(now())
+
+  group       Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paidBy      User      @relation("PaidBy", fields: [paidById], references: [id])
+  splits      ExpenseSplit[]
+  messages    ExpenseMessage[]
+}
+
+model ExpenseSplit {
+  id          String    @id @default(uuid())
+  expenseId   String
+  userId      String
+  amount      Float
+  type        String    // EQUAL, UNEQUAL, PERCENTAGE, SHARE
+
+  expense     Expense   @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+model Payment {
+  id          String    @id @default(uuid())
+  groupId     String
+  senderId    String
+  receiverId  String
+  amount      Float
+  date        DateTime  @default(now())
+
+  sender      User      @relation("PaymentSender", fields: [senderId], references: [id])
+  receiver    User      @relation("PaymentReceiver", fields: [receiverId], references: [id])
+}
+
+model ExpenseMessage {
+  id          String    @id @default(uuid())
+  expenseId   String
+  userId      String
+  content     String
+  createdAt   DateTime  @default(now())
+
+  expense     Expense   @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+  content     String
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

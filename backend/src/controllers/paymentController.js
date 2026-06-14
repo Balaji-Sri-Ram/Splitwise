@@ -1,0 +1,22 @@
+const prisma = require('../utils/db');
+
+exports.createPayment = async (req, res) => {
+  try {
+    const { groupId, receiverId, amount } = req.body;
+    const senderId = req.user.userId;
+
+    const payment = await prisma.payment.create({
+      data: {
+        groupId,
+        senderId,
+        receiverId,
+        amount: Number(amount)
+      }
+    });
+
+    res.status(201).json(payment);
+  } catch (error) {
+    console.error('Create Payment Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
