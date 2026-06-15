@@ -2,9 +2,33 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/jpeg" href="/split.jpg" id="dynamic-favicon" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>Splitwise Clone</title>
+    <script>
+      // Make the favicon circular
+      window.onload = function() {
+        const img = new Image();
+        img.src = '/split.jpg';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 64;
+          canvas.height = 64;
+          const ctx = canvas.getContext('2d');
+          
+          ctx.beginPath();
+          ctx.arc(32, 32, 32, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.clip();
+          
+          ctx.drawImage(img, 0, 0, 64, 64);
+          
+          const link = document.getElementById('dynamic-favicon');
+          link.type = 'image/png';
+          link.href = canvas.toDataURL('image/png');
+        };
+      };
+    </script>
   </head>
   <body>
     <div id="root"></div>
