@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useAuthStore } from '../store/useAuthStore';
-import { Send, X, MessageSquare } from 'lucide-react';
+import { Send, X, MessageSquare, MoreVertical, Trash2 } from 'lucide-react';
+import api from '../services/api';
 
 export default function ExpenseChat({ expense, onClose }) {
   const { user } = useAuthStore();
   const [messages, setMessages] = useState(expense.messages || []);
   const [newMessage, setNewMessage] = useState('');
+  const [showMenu, setShowMenu] = useState(false);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -23,6 +25,10 @@ export default function ExpenseChat({ expense, onClose }) {
 
     socket.on('receive_message', (message) => {
       setMessages((prev) => [...prev, message]);
+    });
+
+    socket.on('chat_cleared', () => {
+      setMessages([]);
     });
 
     return () => {
@@ -44,6 +50,17 @@ export default function ExpenseChat({ expense, onClose }) {
     setNewMessage('');
   };
 
+  const handleClearChat = async () => {
+    try {
+      await api.delete(`/expenses/${expense.id}/messages`);
+      setShowMenu(false);
+      // The socket event 'chat_cleared' will be emitted by the backend to clear it here
+    } catch (err) {
+      console.error('Failed to clear chat', err);
+      alert('Failed to clear chat.');
+    }
+  };
+
   return (
     <div className="fixed inset-y-0 right-0 w-full md:w-96 bg-bg-base border-l border-border-soft shadow-2xl flex flex-col z-50 transform transition-transform duration-300">
       {/* Header */}
@@ -57,9 +74,31 @@ export default function ExpenseChat({ expense, onClose }) {
             <p className="text-xs text-graphite">Expense Chat</p>
           </div>
         </div>
-        <button onClick={onClose} className="p-2 text-graphite hover:bg-bg-card rounded-full transition-colors">
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <div className="relative">
+            <button 
+              onClick={() => setShowMenu(!showMenu)} 
+              className="p-2 text-graphite hover:bg-bg-card rounded-full transition-colors"
+            >
+              <MoreVertical size={20} />
+            </button>
+            
+            {showMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-border-soft overflow-hidden z-50">
+                <button 
+                  onClick={handleClearChat}
+                  className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                >
+                  <Trash2 size={16} />
+                  Clear Chat
+                </button>
+              </div>
+            )}
+          </div>
+          <button onClick={onClose} className="p-2 text-graphite hover:bg-bg-card rounded-full transition-colors">
+            <X size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Messages Area */}

@@ -4,9 +4,13 @@ import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { Receipt, Plus, X, Users, ArrowRight } from 'lucide-react';
 import ExpenseChat from '../components/ExpenseChat';
+import { useLocation } from 'react-router-dom';
 
 export default function Expenses() {
-  const { user } = useAuthStore();
+  const { user, socket } = useAuthStore();
+  const location = useLocation();
+  const passedGroupId = location.state?.groupId;
+  
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   
@@ -36,12 +40,36 @@ export default function Expenses() {
     }
   }, [selectedGroup]);
 
+  useEffect(() => {
+    if (socket && selectedGroup) {
+      const handleNewExpense = (expense) => {
+        setExpenses((prev) => [expense, ...prev]);
+      };
+      const handleBalancesUpdated = () => {
+        fetchBalances();
+      };
+
+      socket.on('new_expense', handleNewExpense);
+      socket.on('balances_updated', handleBalancesUpdated);
+
+      return () => {
+        socket.off('new_expense', handleNewExpense);
+        socket.off('balances_updated', handleBalancesUpdated);
+      };
+    }
+  }, [socket, selectedGroup]);
+
   const fetchGroups = async () => {
     try {
       const res = await api.get('/groups');
       setGroups(res.data);
       if (res.data.length > 0) {
-        setSelectedGroup(res.data[0]);
+        if (passedGroupId) {
+          const matchedGroup = res.data.find(g => g.id === passedGroupId);
+          setSelectedGroup(matchedGroup || res.data[0]);
+        } else {
+          setSelectedGroup(res.data[0]);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -59,8 +87,8 @@ export default function Expenses() {
 
   const fetchBalances = async () => {
     try {
-      const res = await api.get(`/expenses/balances/${selectedGroup.id}`);
-      setBalances(res.data.optimizedDebts);
+      const res = await api.get(`/groups/${selectedGroup.id}/balances`);
+      setBalances(res.data);
     } catch (err) {
       console.error(err);
     }
@@ -137,7 +165,7 @@ export default function Expenses() {
     try {
       if (balances.length === 0) return;
       // For MVP, we auto-settle the first debt involving the current user.
-      const debt = balances.find(d => d.from.id === user.id || d.to.id === user.id);
+      const debt = balances.find(d => d.fromUser?.id === user.id || d.toUser?.id === user.id);
       if (!debt) {
         alert('You have no direct debts to settle right now.');
         return;
@@ -145,7 +173,7 @@ export default function Expenses() {
       
       const payload = {
         groupId: selectedGroup.id,
-        receiverId: debt.from.id === user.id ? debt.to.id : debt.from.id,
+        receiverId: debt.fromUser?.id === user.id ? debt.toUser?.id : debt.fromUser?.id,
         amount: debt.amount
       };
       
@@ -223,7 +251,7 @@ export default function Expenses() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-charcoal">${expense.amount.toFixed(2)}</div>
+                    <div className="font-bold text-charcoal">₹{expense.amount.toFixed(2)}</div>
                     <div className="text-xs text-graphite mt-1">{new Date(expense.createdAt).toLocaleDateString()}</div>
                   </div>
                 </div>
@@ -247,16 +275,16 @@ export default function Expenses() {
                   {balances.map((debt, idx) => (
                     <div key={idx} className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-charcoal truncate max-w-[80px]" title={debt.from.name}>
-                          {debt.from.id === user.id ? 'You' : debt.from.name}
+                        <span className="font-medium text-charcoal truncate max-w-[80px]" title={debt.fromUser?.name}>
+                          {debt.fromUser?.id === user.id ? 'You' : debt.fromUser?.name}
                         </span>
                         <ArrowRight size={14} className="text-graphite flex-shrink-0" />
-                        <span className="font-medium text-charcoal truncate max-w-[80px]" title={debt.to.name}>
-                          {debt.to.id === user.id ? 'You' : debt.to.name}
+                        <span className="font-medium text-charcoal truncate max-w-[80px]" title={debt.toUser?.name}>
+                          {debt.toUser?.id === user.id ? 'You' : debt.toUser?.name}
                         </span>
                       </div>
                       <div className="font-bold text-accent">
-                        ${debt.amount.toFixed(2)}
+                        ₹{debt.amount.toFixed(2)}
                       </div>
                     </div>
                   ))}
@@ -304,7 +332,7 @@ export default function Expenses() {
                     />
                   </div>
                   <div className="w-1/3">
-                    <label className="block text-xs font-medium text-graphite mb-1">Amount ($)</label>
+                    <label className="block text-xs font-medium text-graphite mb-1">Amount (₹)</label>
                     <input
                       {...register('amount', { required: 'Required', min: 0.01 })}
                       type="number"
@@ -353,7 +381,7 @@ export default function Expenses() {
                             placeholder="0"
                           />
                           <span className="absolute right-2 top-1.5 text-xs text-graphite pointer-events-none">
-                            {splitType === 'PERCENTAGE' ? '%' : splitType === 'UNEQUAL' ? '$' : 'x'}
+                            {splitType === 'PERCENTAGE' ? '%' : splitType === 'UNEQUAL' ? '₹' : 'x'}
                           </span>
                         </div>
                       </div>
@@ -362,7 +390,7 @@ export default function Expenses() {
                 )}
                 {splitType === 'EQUAL' && amount > 0 && selectedGroup && (
                   <div className="text-center text-sm text-graphite p-4 bg-bg-base rounded-lg border border-border-soft">
-                    Everyone owes <strong>${(amount / selectedGroup.members.length).toFixed(2)}</strong>
+                    Everyone owes <strong>₹{(amount / selectedGroup.members.length).toFixed(2)}</strong>
                   </div>
                 )}
 

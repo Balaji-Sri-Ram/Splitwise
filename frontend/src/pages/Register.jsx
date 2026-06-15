@@ -43,7 +43,7 @@ export default function Register() {
             {...register('name', { required: 'Name is required' })}
             type="text"
             className="w-full px-4 py-2 border border-border-soft rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors bg-bg-base"
-            placeholder="John Doe"
+            placeholder="Ram Parasa"
           />
           {errors.name && <span className="text-xs text-red-500 mt-1">{errors.name.message}</span>}
         </div>

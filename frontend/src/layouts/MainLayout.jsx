@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { LayoutDashboard, Users, Receipt, LogOut } from 'lucide-react';
@@ -6,7 +7,15 @@ export default function MainLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const logout = useAuthStore((state) => state.logout);
   const user = useAuthStore((state) => state.user);
+  const socket = useAuthStore((state) => state.socket);
+  const initSocket = useAuthStore((state) => state.initSocket);
   const location = useLocation();
+
+  useEffect(() => {
+    if (isAuthenticated && user && !socket) {
+      initSocket(user.id);
+    }
+  }, [isAuthenticated, user, socket, initSocket]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

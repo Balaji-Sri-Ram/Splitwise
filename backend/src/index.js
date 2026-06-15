@@ -18,6 +18,13 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+// Make io accessible to our router
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/groups', groupRoutes);
@@ -30,8 +37,16 @@ const prisma = require('./utils/db');
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
   
+  socket.on('join_user', (userId) => {
+    socket.join(`user_${userId}`);
+  });
+
+  socket.on('join_group', (groupId) => {
+    socket.join(`group_${groupId}`);
+  });
+
   socket.on('join_expense', (expenseId) => {
-    socket.join(expenseId);
+    socket.join(`expense_${expenseId}`);
   });
 
   socket.on('send_message', async (data) => {
@@ -43,7 +58,7 @@ io.on('connection', (socket) => {
         include: { user: { select: { id: true, name: true } } }
       });
       // Broadcast to room
-      io.to(expenseId).emit('receive_message', message);
+      io.to(`expense_${expenseId}`).emit('receive_message', message);
     } catch (error) {
       console.error('Socket Message Error:', error);
     }
